@@ -1,149 +1,185 @@
-# رفع Bot Forge على GitHub ثم نشره على Vercel
+# رفع ونشر Bot Forge من موبايل أندرويد (Termux)
+
+بما إنك شغال من التليفون، أسهل وأقوى طريقة هي **Termux** — تطبيق terminal حقيقي على أندرويد،
+هتقدر بيه تعمل git + node زي أي كمبيوتر تقريبًا.
 
 ---
 
-## ⚠️ حاجة مهمة قبل ما تبدأ (قاعدة البيانات)
+## 1) تثبيت Termux
 
-بما إن الموقع هيشتغل بجد للناس، الملف المحدّث بقى متظبط على **Postgres** من الأول (مش SQLite)،
-لأن Vercel سيرفرات serverless بتمسح أي ملفات محلية (زي SQLite) كل مرة، وهتفقد بيانات اليوزرز.
+⚠️ **متنزلش Termux من Google Play** (نسخة قديمة ومهجورة).
+نزّله من **F-Droid** بدل كده:
 
-اعمل قاعدة بيانات مجانية (يكفي مشروع صغير/متوسط) من واحد من دول:
-- **Neon** (الأسهل والأسرع): https://neon.tech
-- **Vercel Postgres**: من داخل داشبورد Vercel نفسه بعد ربط المشروع
-- **Supabase**: https://supabase.com
+https://f-droid.org/packages/com.termux/
 
-خطوات Neon (مثال سريع):
-1. سجل دخول بحساب GitHub
-2. Create Project → اختار اسم ومنطقة قريبة منك
-3. هتلاقي Connection String جاهز، انسخه (يبدأ بـ `postgresql://...`)
-4. حطه في `DATABASE_URL` محليًا وفي Vercel (قسم 3 تحت)
+(لو معندكش F-Droid: نزّل F-Droid الأول من f-droid.org، بعدين دور فيه على Termux ونزله)
 
 ---
 
-## 1) رفع المشروع على GitHub
+## 2) تجهيز Termux
+
+افتح Termux واكتب:
 
 ```bash
-cd bot-forge
-git init
-git add .
-git commit -m "Initial commit - Bot Forge"
+pkg update -y && pkg upgrade -y
+pkg install git nodejs unzip -y
 ```
 
-اعمل ريبو جديد فاضي على GitHub (من غير README) من هنا:
-https://github.com/new
+اديله شوية وقت أول مرة (بيثبت حاجات كتير).
 
-بعدين اربطه وارفع:
+اسمح لـ Termux يشوف ملفاتك:
+```bash
+termux-setup-storage
+```
+(هيطلعلك إذن، اضغط Allow)
+
+---
+
+## 3) نقل ملف المشروع لجوه Termux
+
+1. حمّل ملف `bot-forge.zip` اللي بعتهولك (لو مش محمل، افتحه من شات Claude واحفظه في Downloads).
+2. في Termux:
 
 ```bash
+cd ~
+mkdir work && cd work
+cp /sdcard/Download/bot-forge.zip .
+unzip bot-forge.zip
+cd bot-forge
+```
+
+---
+
+## 4) عمل حساب GitHub Token (بدل الباسورد)
+
+GitHub بقى مش بيقبل باسورد عادي وقت الـ push من terminal. لازم **Personal Access Token**:
+
+1. من متصفح التليفون افتح: https://github.com/settings/tokens
+2. **Generate new token → Generate new token (classic)**
+3. اديله اسم زي `termux-phone`
+4. حدد صلاحية **repo** بس (تيك عليها)
+5. Generate token واحفظ الكود اللي هيطلعلك (بيتشاف مرة واحدة بس!) — انسخه في مكان آمن (Google Keep مثلاً)
+
+---
+
+## 5) عمل الريبو على GitHub
+
+من المتصفح: https://github.com/new
+- اسم الريبو (مثلاً `bot-forge`)
+- خليه **Private** (أفضل، عشان جوه بوتك)
+- متعملش تيك على README ولا .gitignore (سيبها فاضية)
+- Create repository
+
+---
+
+## 6) رفع المشروع من Termux
+
+في Termux (لسه جوه فولدر bot-forge):
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
 git branch -M main
-git remote add origin https://github.com/USERNAME/REPO_NAME.git
+git config --global user.email "بريدك@example.com"
+git config --global user.name "اسمك"
+git remote add origin https://github.com/USERNAME/bot-forge.git
 git push -u origin main
 ```
 
-> غيّر `USERNAME/REPO_NAME` باسمك واسم الريبو.
+- بدّل `USERNAME` باسمك في GitHub، و`bot-forge` باسم الريبو اللي عملته.
+- وقت الـ push هيطلبلك **Username** (اسمك في GitHub) و**Password** — هنا حط الـ **Token** اللي عملته في الخطوة 4 بدل الباسورد.
 
-### تأكد إن دول متسيبوش يترفعوا (موجودين في `.gitignore` بالفعل):
-- `node_modules/`
-- `.next/`
-- `dev.db`
-- `.env.local` ← **مهم جدًا متسيبهوش يترفع، فيه أسرارك (Client Secret, NEXTAUTH_SECRET)**
+لو الـ push نجح، الملفات هتظهر على صفحة الريبو على GitHub فورًا.
 
 ---
 
-## 2) استيراد المشروع في Vercel
+## 7) قاعدة البيانات (Neon) — من المتصفح
 
-1. روح https://vercel.com وسجل دخول بحساب GitHub بتاعك.
-2. من الداشبورد: **Add New → Project**
-3. اختار الريبو اللي رفعته دلوقتي.
-4. Framework Preset هيتحدد أوتوماتيك: **Next.js**.
-5. **متضغطش Deploy لسه** — روح لقسم Environment Variables الأول (تحت).
+1. افتح https://neon.tech وسجل دخول بحساب GitHub
+2. Create Project → اختار اسم
+3. انسخ الـ Connection String (بيبدأ بـ `postgresql://...`)
+4. احفظه، هتحتاجه في الخطوة الجاية وفي Vercel
+
+### تجهيز الجداول من Termux (اختياري بس مهم):
+```bash
+cd ~/work/bot-forge
+echo 'DATABASE_URL="الكونكشن سترينج بتاعك هنا"' > .env
+npm install
+npx prisma db push
+```
+ده بيعمل الجداول (User, Account, Session, Bundle) على قاعدة Neon مباشرة.
+لو `npm install` بطيء أو فيه مشاكل، قدر تتخطى الخطوة دي وتخلي Vercel يعملها وقت أول Deploy — بس أضمن تعمل db push بنفسك.
 
 ---
 
-## 3) ضبط Environment Variables في Vercel
+## 8) Google OAuth — من المتصفح
 
-في نفس صفحة الإعداد (أو Project Settings → Environment Variables) ضيف:
+1. https://console.cloud.google.com → أنشئ مشروع
+2. APIs & Services → Credentials → Create Credentials → OAuth Client ID → Web Application
+3. Authorized redirect URIs: هتضيفها بعد ما تاخد دومين Vercel (خطوة 10)
+4. احفظ **Client ID** و **Client Secret**
+
+---
+
+## 9) استيراد المشروع في Vercel — من المتصفح
+
+1. https://vercel.com → سجل دخول بحساب GitHub
+2. Add New → Project → اختار ريبو `bot-forge`
+3. **قبل الـ Deploy**، ضيف الـ Environment Variables:
 
 | Key | Value |
 |---|---|
-| `GOOGLE_CLIENT_ID` | نفس القيمة من Google Cloud Console |
-| `GOOGLE_CLIENT_SECRET` | نفس القيمة |
-| `NEXTAUTH_URL` | `https://your-project.vercel.app` (أو دومينك الخاص) |
-| `NEXTAUTH_SECRET` | ولّده بالأمر: `openssl rand -base64 32` |
-| `ADMIN_EMAIL` | إيميلك اللي هتسجل بيه عشان تبقى أدمن |
-| `DATABASE_URL` | الكونكشن سترينج اللي هتاخده من Neon/Vercel Postgres/Supabase (شكله `postgresql://user:pass@host/db?sslmode=require`) |
+| `GOOGLE_CLIENT_ID` | من خطوة 8 |
+| `GOOGLE_CLIENT_SECRET` | من خطوة 8 |
+| `NEXTAUTH_URL` | هتحطها بعد أول deploy (سيبها فاضية دلوقتي أو حط أي حاجة مؤقتة) |
+| `NEXTAUTH_SECRET` | أي نص عشوائي طويل (32+ حرف) |
+| `ADMIN_EMAIL` | إيميلك اللي هتسجل بيه |
+| `DATABASE_URL` | كونكشن سترينج Neon من خطوة 7 |
 
-> بعد أول Deploy هتاخد الدومين الحقيقي بتاع Vercel، وقتها ارجع حدّث `NEXTAUTH_URL` بيه بالظبط وأعد الـ Deploy.
-
----
-
-## 4) تحديث Google OAuth Redirect URI
-
-روح Google Cloud Console → APIs & Services → Credentials → افتح الـ OAuth Client بتاعك، وضيف:
-
-```
-https://your-project.vercel.app/api/auth/callback/google
-```
-
-(بدّل الدومين بدومينك الحقيقي بعد أول Deploy). لو هتستخدم دومين خاص لاحقًا، ضيفه هنا كمان.
+4. اضغط **Deploy**
 
 ---
 
-## 5) تجهيز قاعدة البيانات (Postgres)
+## 10) بعد أول Deploy
 
-السكيما (`prisma/schema.prisma`) أصلًا متظبطة على `postgresql`، محتاج بس تربطها بقاعدة حقيقية:
+1. هتاخد دومين زي `https://bot-forge-xxxx.vercel.app`
+2. ارجع Google Cloud Console → ضيف Redirect URI:
+   ```
+   https://bot-forge-xxxx.vercel.app/api/auth/callback/google
+   ```
+3. ارجع Vercel → Settings → Environment Variables → عدّل `NEXTAUTH_URL` بنفس الدومين بالظبط
+4. اعمل **Redeploy** (من صفحة الـ Deployments → ⋯ → Redeploy)
 
-1. اعمل قاعدة بيانات من Neon/Vercel Postgres/Supabase (خطوات فوق).
-2. حط الكونكشن سترينج في `DATABASE_URL` جوه `.env.local` عندك محليًا.
-3. شغّل محليًا:
+---
+
+## 11) اختبار
+
+- افتح الدومين، سجل دخول بإيميل الأدمن
+- جرب الفورم وحمّل ZIP تجريبي
+- افتح `/admin` وتأكد إنك أدمن
+
+---
+
+## نصايح خاصة بـ Termux
+
+- لو النت اتقطع وسط `npm install`، شغّل نفس الأمر تاني، بيكمل من غير ما يعيد كل حاجة.
+- لو عايز ترجع تعدل ملف بعدين: `pkg install nano` وبعدين `nano اسم_الملف`
+- عشان متكتبش التوكن كل مرة:
 ```bash
-npx prisma db push
+git config --global credential.helper store
 ```
-ده هيبني الجداول (User, Account, Session, Bundle...) على القاعدة الحقيقية.
-
-4. نفس الكونكشن سترينج بالظبط حطه في Vercel Environment Variables (قسم 3).
+(هيحفظ التوكن بعد أول مرة تكتبه)
 
 ---
 
-## 6) الـ Deploy
+## تذكير: بوت الواتساب بتاعك
 
-بعد ما تضبط الـ Environment Variables، دوس **Deploy**.
-
-Vercel هيعمل تلقائيًا:
+فولدر `bot-template/` جوه المشروع لسه محتاج ملفات **Escanor Bot** الحقيقية بتاعتك.
+ابعتهاليّ في شات تاني وهظبطها جوه القالب بالـ placeholders الصح، وبعدين تعمل:
+```bash
+git add .
+git commit -m "Add real bot files"
+git push
 ```
-npm install
-prisma generate   (بيحصل من postinstall)
-npm run build
-```
-
-لو فيه Build Error يبان في الـ Logs مباشرة — أكتر خطأ متوقع هو نسيان متغير بيئة أو دومين OAuth غلط.
-
----
-
-## 7) بعد أول Deploy — خطوات لازمة
-
-1. افتح الدومين اللي Vercel داهولك (`https://xxx.vercel.app`)
-2. سجل دخول بإيميل الأدمن (`ADMIN_EMAIL`) — هيتحول أدمن أوتوماتيك.
-3. جرب فورم التخصيص وحمل ZIP تجريبي تتأكد إن التوليد شغال.
-4. روح `/admin` وتأكد إن لوحة التحكم شغالة (عدد اليوزرز، الحظر...).
-5. لو غيّرت `NEXTAUTH_URL` بعد أول deploy، اعمل **Redeploy** يدوي من Vercel (زرار الـ ⋯ جنب آخر Deployment → Redeploy).
-
----
-
-## 8) دومين خاص (اختياري)
-
-Project Settings → Domains → ضيف الدومين بتاعك واتبع تعليمات الـ DNS (CNAME أو A record حسب مزود الدومين).
-متنساش بعدها تحدّث:
-- `NEXTAUTH_URL` في Vercel
-- Redirect URI في Google Cloud Console
-
----
-
-## مشاكل شائعة
-
-| المشكلة | الحل |
-|---|---|
-| `Error: PrismaClient is unable to run in this browser environment` | تأكد إن الاستدعاء لـ `prisma` من كود سيرفر (`route.ts`) مش من `"use client"` component |
-| بعد تسجيل الدخول بيرجعلك تاني لصفحة الدخول (Redirect Loop) | `NEXTAUTH_URL` مش مطابق للدومين الحالي بالظبط، أو الـ Redirect URI في Google غلط |
-| `Can't reach database server` وقت الـ Deploy | تأكد إن `DATABASE_URL` نفسه بالظبط (متطابق) محطوط في Vercel Environment Variables، ومفيهوش مسافات زيادة |
-| ZIP التوليد بيرجع 500 | تأكد إن فولدر `bot-template/` اترفع كامل مع الريبو ومفيهوش أخطاء JS جوه `config.js` |
+وVercel هيعمل Deploy جديد أوتوماتيك بمجرد الـ push.
